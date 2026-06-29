@@ -1310,31 +1310,27 @@ async function saveOneUrl(bookId) {
 
 // ── Update URL in HTML source ──
 function updateUrlInHtml(html, bookId, url) {
-  // Look for the URLS_MAP object and update it, or inject it
-  const mapStart = '';
+  const MS = '//@@URLS_START@@';
+  const ME = '//@@URLS_END@@';
 
-  // Parse existing map if present
   let urlsMap = {};
-  const s = html.indexOf(mapStart);
-  const e = html.indexOf(mapEnd);
-  if (s !== -1 && e !== -1) {
+  const si = html.indexOf(MS);
+  const ei = html.indexOf(ME);
+  if (si !== -1 && ei !== -1) {
     try {
-      const json = html.slice(s + mapStart.length, e).replace('const URLS_MAP=','').replace(';','').trim();
-      urlsMap = JSON.parse(json);
+      const raw = html.slice(si + MS.length, ei).replace('const URLS_MAP=','').replace(';
+applyUrlsMap();','').trim();
+      urlsMap = JSON.parse(raw);
     } catch(_) {}
-    // Remove old map block
-    html = html.slice(0, s) + html.slice(e + mapEnd.length);
+    html = html.slice(0, si) + html.slice(ei + ME.length);
   }
 
-  // Update the map
   if (url) urlsMap[bookId] = url;
   else delete urlsMap[bookId];
 
-  // Inject updated map just before </script> closing (last one)
-  const mapBlock = `\n${mapStart}\nconst URLS_MAP=${JSON.stringify(urlsMap)};\napplyUrlsMap();\n${mapEnd}\n`;
-  const lastScript = html.lastIndexOf('</script>');
-  html = html.slice(0, lastScript) + mapBlock + html.slice(lastScript);
-
+  const mapBlock = '\n' + MS + '\nconst URLS_MAP=' + JSON.stringify(urlsMap) + ';\napplyUrlsMap();\n' + ME + '\n';
+  const lastClose = html.lastIndexOf('<\/script>');
+  html = html.slice(0, lastClose) + mapBlock + html.slice(lastClose);
   return html;
 }
 
@@ -1413,30 +1409,12 @@ applyUrlsMap();
 buildFilterButtons();
 renderAll();
 
-/* URLS_MAP_START */
-const URLS_MAP={
-  "aathichudi_1": "https://heyzine.com/flip-book/53b85e56cb.html",
-  "aathichudi_2": "https://heyzine.com/flip-book/165f4dc9a0.html",
-  "aathichudi_3": "https://heyzine.com/flip-book/4e7d82bf67.html",
-  "aathichudi_4": "https://heyzine.com/flip-book/3a86fa8542.html",
-  "aathichudi_5": "https://heyzine.com/flip-book/1eb743e037.html",
-  "aathichudi_6": "https://heyzine.com/flip-book/fd951e7fa9.html",
-  "aathichudi_7": "https://heyzine.com/flip-book/e800bf7b64.html",
-  "aathichudi_8": "https://heyzine.com/flip-book/3f6e857380.html",
-  "aathichudi_9": "https://heyzine.com/flip-book/d428cbfbcf.html",
-  "aathichudi_10": "https://heyzine.com/flip-book/c941d89dad.html",
-  "aathichudi_11": "https://heyzine.com/flip-book/ca77337385.html",
-  "aathichudi_12": "https://heyzine.com/flip-book/8e50cd78e8.html",
-  "aathichudi_13": "https://heyzine.com/flip-book/a2d1f22ca0.html",
-  "aathichudi_14": "https://heyzine.com/flip-book/e53d87a2eb.html",
-  "aathichudi_15": "https://heyzine.com/flip-book/0afe6e40fb.html",
-  "aathichudi_20": "https://heyzine.com/flip-book/79ae5dc27a.html",
-  "aathichudi_89": "https://heyzine.com/flip-book/7f7df88d32.html",
-  "aathichudi_90": "https://heyzine.com/flip-book/7b192c93af.html",
-  "aathichudi_93": "https://heyzine.com/flip-book/904f5afd3e.html"
-};
+
+
+//@@URLS_START@@
+const URLS_MAP={"aathichudi_1": "https://heyzine.com/flip-book/53b85e56cb.html", "aathichudi_2": "https://heyzine.com/flip-book/165f4dc9a0.html", "aathichudi_3": "https://heyzine.com/flip-book/4e7d82bf67.html", "aathichudi_4": "https://heyzine.com/flip-book/3a86fa8542.html", "aathichudi_5": "https://heyzine.com/flip-book/1eb743e037.html", "aathichudi_6": "https://heyzine.com/flip-book/fd951e7fa9.html", "aathichudi_7": "https://heyzine.com/flip-book/e800bf7b64.html", "aathichudi_8": "https://heyzine.com/flip-book/3f6e857380.html", "aathichudi_9": "https://heyzine.com/flip-book/d428cbfbcf.html", "aathichudi_10": "https://heyzine.com/flip-book/c941d89dad.html", "aathichudi_11": "https://heyzine.com/flip-book/ca77337385.html", "aathichudi_12": "https://heyzine.com/flip-book/8e50cd78e8.html", "aathichudi_13": "https://heyzine.com/flip-book/a2d1f22ca0.html", "aathichudi_14": "https://heyzine.com/flip-book/e53d87a2eb.html", "aathichudi_15": "https://heyzine.com/flip-book/0afe6e40fb.html", "aathichudi_20": "https://heyzine.com/flip-book/79ae5dc27a.html", "aathichudi_89": "https://heyzine.com/flip-book/7f7df88d32.html", "aathichudi_90": "https://heyzine.com/flip-book/7b192c93af.html", "aathichudi_93": "https://heyzine.com/flip-book/904f5afd3e.html"};
 applyUrlsMap();
-/* URLS_MAP_END */
+//@@URLS_END@@
 </script>
 </body>
 </html>
