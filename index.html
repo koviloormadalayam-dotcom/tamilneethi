@@ -189,8 +189,9 @@ footer .fta{font-family:'Tiro Tamil',serif;color:rgba(255,255,255,.7);font-size:
   <div class="fta">தமிழ் இலக்கியத்தின் நீதிகளை அடுத்த தலைமுறைக்கு கொண்டு செல்வோம்</div>
   <div>Preserving the wisdom of Tamil literature for future generations</div>
   <div style="margin-top:8px;font-size:11px;opacity:.5">Flipbooks powered by Heyzine</div>
-  <div style="margin-top:14px">
-    <button onclick="openLinkManager()" style="background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.2);padding:8px 20px;border-radius:6px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;">🔗 இணைப்புகளை நிர்வகி / Manage Flipbook Links</button>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+    <button onclick="openLinkManager()" style="background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.2);padding:8px 20px;border-radius:6px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;">🔗 இணைப்புகளை நிர்வகி / Manage Links</button>
+    <button onclick="clearToken()" style="background:transparent;color:rgba(255,255,255,0.3);border:1px solid rgba(255,255,255,0.1);padding:8px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Inter',sans-serif;">⚙ Reset Token</button>
   </div>
 </footer>
 
@@ -742,9 +743,18 @@ const NAL_VERSES = [
 ];
 
 // Build books array from verse data
+const DATA_VERSION = 'v4'; // increment this whenever verse data changes
+
 function buildBooks() {
+  const savedVersion = localStorage.getItem('tsl_data_version');
   const saved = localStorage.getItem('tsl_books_v2');
-  if (saved) return JSON.parse(saved);
+
+  // If saved data exists AND is current version, use it
+  if (saved && savedVersion === DATA_VERSION) return JSON.parse(saved);
+
+  // Otherwise clear stale data and rebuild from source
+  localStorage.removeItem('tsl_books_v2');
+  localStorage.removeItem('tsl_data_version');
 
   const books = [];
   const addVerses = (arr, srcId) => {
@@ -768,6 +778,9 @@ function buildBooks() {
   addVerses(KV_VERSES, 'kondraivendum');
   addVerses(MU_VERSES, 'muthurai');
   addVerses(NAL_VERSES, 'naladiyar');
+
+  // Stamp version so this fresh build is reused next time
+  localStorage.setItem('tsl_data_version', DATA_VERSION);
   return books;
 }
 
@@ -1108,6 +1121,7 @@ function saveBook() {
   };
   BOOKS.push(book);
   localStorage.setItem('tsl_books_v2', JSON.stringify(BOOKS));
+  localStorage.setItem('tsl_data_version', DATA_VERSION);
   closeModal();
   renderAll();
 }
@@ -1119,11 +1133,34 @@ function exportData() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// LINK MANAGER — simple panel to paste Heyzine URLs
+// GITHUB CONFIG
 // ══════════════════════════════════════════════════════════════════
+const GH_OWNER = 'koviloormadalayam-dotcom';
+const GH_REPO  = 'tamilneethi';
+const GH_FILE  = 'index.html';
+const GH_BRANCH= 'main';
 const ADMIN_PASSWORD = 'Koviloor@07';
 let adminUnlocked = false;
+let ghToken = localStorage.getItem('tsl_gh_token') || '';
 
+// ── Token setup ──
+function checkToken() {
+  if (!ghToken) {
+    const t = prompt('GitHub Token இல்லை.\nஉங்கள் Personal Access Token ஐ உள்ளிடவும்:\n(இது உங்கள் browser-ல் மட்டும் சேமிக்கப்படும்)');
+    if (!t) return false;
+    ghToken = t.trim();
+    localStorage.setItem('tsl_gh_token', ghToken);
+  }
+  return true;
+}
+
+function clearToken() {
+  localStorage.removeItem('tsl_gh_token');
+  ghToken = '';
+  alert('Token cleared. You will be asked for it next time.');
+}
+
+// ── Open link manager ──
 function openLinkManager() {
   if (!adminUnlocked) {
     const pwd = prompt('கடவுச்சொல் / Password:');
@@ -1145,7 +1182,7 @@ function openLinkManager() {
 
 function closeLinkModal() {
   document.getElementById('linkModal').classList.remove('open');
-  adminUnlocked = false;  // lock again on close
+  adminUnlocked = false;
   renderAll();
 }
 
@@ -1156,66 +1193,185 @@ function loadLinkList() {
 
   const srcBooks = BOOKS.filter(b => b.source === srcId);
   const src = SOURCES.find(s => s.id === srcId);
-
   list.innerHTML = '';
 
   src.subs.forEach(sub => {
     const subBooks = srcBooks.filter(b => b.sub === sub.id);
     if (!subBooks.length) return;
 
-    // Sub-header
     const hdr = document.createElement('div');
-    hdr.style.cssText = 'background:var(--gold-light);padding:8px 14px;font-size:12px;font-weight:600;color:var(--gold);border-bottom:1px solid #E8D080;font-family:Inter,sans-serif;letter-spacing:.04em;';
+    hdr.style.cssText = 'background:var(--gold-light);padding:8px 14px;font-size:12px;font-weight:600;color:var(--gold);border-bottom:1px solid #E8D080;font-family:Inter,sans-serif;';
     hdr.textContent = sub.ta + ' — ' + sub.en;
     list.appendChild(hdr);
 
     subBooks.forEach(book => {
+      const hasLink = book.url && book.url.trim() !== '';
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);';
-
-      const hasLink = book.url && book.url.trim() !== '';
-
       row.innerHTML = `
-        <div style="flex:0 0 28px;width:28px;height:28px;border-radius:50%;background:${hasLink ? '#E8F5E9' : 'var(--red-light)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:${hasLink ? '#2E7D32' : 'var(--red)'};">
-          ${hasLink ? '✓' : book.num}
+        <div style="flex:0 0 28px;width:28px;height:28px;border-radius:50%;background:${hasLink?'#E8F5E9':'var(--red-light)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:${hasLink?'#2E7D32':'var(--red)'};" id="ind-${book.id}">
+          ${hasLink?'✓':book.num}
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-family:'Tiro Tamil',serif;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${book.num}. ${book.ta}</div>
-          <div style="font-size:11px;color:var(--ink-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${hasLink ? book.url : 'இணைப்பு இல்லை — No link yet'}</div>
+          <div style="font-family:'Tiro Tamil',serif;font-size:13px;color:var(--ink);">${book.num}. ${book.ta}</div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-top:1px;" id="prev-${book.id}">${hasLink?book.url:'இணைப்பு இல்லை'}</div>
         </div>
         <input type="url" placeholder="https://heyzine.com/flip-book/…"
-          value="${book.url || ''}"
+          value="${book.url||''}"
           data-id="${book.id}"
-          onchange="saveUrlFromInput(this)"
-          style="width:220px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;background:var(--cream);color:var(--ink);outline:none;flex-shrink:0;">
+          style="width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;background:var(--cream);color:var(--ink);outline:none;flex-shrink:0;"
+          id="inp-${book.id}">
+        <button onclick="saveOneUrl('${book.id}')"
+          style="padding:6px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;flex-shrink:0;font-family:'Inter',sans-serif;"
+          id="savebtn-${book.id}">Save</button>
       `;
       list.appendChild(row);
     });
   });
 }
 
-function saveUrlFromInput(input) {
-  const bookId = input.dataset.id;
+// ── Save one URL to GitHub ──
+async function saveOneUrl(bookId) {
+  if (!checkToken()) return;
+
   const book = BOOKS.find(b => b.id === bookId);
   if (!book) return;
-  book.url = input.value.trim();
-  localStorage.setItem('tsl_books_v2', JSON.stringify(BOOKS));
-  // Refresh the row indicator
-  const indicator = input.closest('div[style]').querySelector('div[style*="border-radius:50%"]');
-  if (indicator) {
-    const hasLink = book.url !== '';
-    indicator.style.background = hasLink ? '#E8F5E9' : 'var(--red-light)';
-    indicator.style.color = hasLink ? '#2E7D32' : 'var(--red)';
-    indicator.textContent = hasLink ? '✓' : book.num;
+
+  const input = document.getElementById('inp-' + bookId);
+  const btn   = document.getElementById('savebtn-' + bookId);
+  const url   = input.value.trim();
+
+  btn.textContent = '⏳';
+  btn.disabled = true;
+
+  // Update in memory
+  book.url = url;
+
+  try {
+    // 1. Get current file SHA and content from GitHub
+    const getResp = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}`,
+      { headers: { 'Authorization': `token ${ghToken}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (!getResp.ok) throw new Error('GitHub fetch failed: ' + getResp.status);
+    const fileData = await getResp.json();
+    const sha = fileData.sha;
+
+    // 2. Decode current HTML
+    let html = atob(fileData.content.replace(/\n/g,''));
+
+    // 3. Find the verse array entry for this book and update its URL
+    // Replace url:'' or url:'...' for this specific book id pattern
+    // We update the JS source arrays by finding the book ID comment marker
+    // Strategy: update a URLs lookup object embedded in the HTML
+    html = updateUrlInHtml(html, bookId, url);
+
+    // 4. Encode and push back
+    const encoded = btoa(unescape(encodeURIComponent(html)));
+    const putResp = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`,
+      {
+        method: 'PUT',
+        headers: { 'Authorization': `token ${ghToken}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Update URL: ${book.ta} (${bookId})`,
+          content: encoded,
+          sha: sha,
+          branch: GH_BRANCH
+        })
+      }
+    );
+    if (!putResp.ok) {
+      const err = await putResp.json();
+      throw new Error(err.message || 'Push failed');
+    }
+
+    // 5. Update UI
+    const ind  = document.getElementById('ind-'  + bookId);
+    const prev = document.getElementById('prev-' + bookId);
+    if (ind)  { ind.textContent = url ? '✓' : book.num; ind.style.background = url ? '#E8F5E9' : 'var(--red-light)'; ind.style.color = url ? '#2E7D32' : 'var(--red)'; }
+    if (prev) prev.textContent = url || 'இணைப்பு இல்லை';
+
+    btn.textContent = '✓ Saved';
+    btn.style.background = '#2E7D32';
+    setTimeout(() => { btn.textContent = 'Save'; btn.style.background = 'var(--red)'; btn.disabled = false; }, 3000);
+
+    showNotice('✓ GitHub-ல் சேமிக்கப்பட்டது! 2–3 நிமிடத்தில் live ஆகும்.', 'success');
+
+  } catch(e) {
+    btn.textContent = '✗ Error';
+    btn.style.background = '#c0392b';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = 'Save'; btn.style.background = 'var(--red)'; }, 3000);
+    showNotice('பிழை: ' + e.message, 'error');
+    console.error(e);
   }
-  const urlPreview = input.closest('div[style]').querySelector('div[style*="font-size:11px"]');
-  if (urlPreview) urlPreview.textContent = book.url || 'இணைப்பு இல்லை — No link yet';
 }
 
-// ══════════════════════════════════════════════════════════════════
-// ADMIN (kept for export only — no longer needed for links)
-// ══════════════════════════════════════════════════════════════════
+// ── Update URL in HTML source ──
+function updateUrlInHtml(html, bookId, url) {
+  // Look for the URLS_MAP object and update it, or inject it
+  const mapStart = '';
+
+  // Parse existing map if present
+  let urlsMap = {};
+  const s = html.indexOf(mapStart);
+  const e = html.indexOf(mapEnd);
+  if (s !== -1 && e !== -1) {
+    try {
+      const json = html.slice(s + mapStart.length, e).replace('const URLS_MAP=','').replace(';','').trim();
+      urlsMap = JSON.parse(json);
+    } catch(_) {}
+    // Remove old map block
+    html = html.slice(0, s) + html.slice(e + mapEnd.length);
+  }
+
+  // Update the map
+  if (url) urlsMap[bookId] = url;
+  else delete urlsMap[bookId];
+
+  // Inject updated map just before </script> closing (last one)
+  const mapBlock = `\n${mapStart}\nconst URLS_MAP=${JSON.stringify(urlsMap)};\napplyUrlsMap();\n${mapEnd}\n`;
+  const lastScript = html.lastIndexOf('</script>');
+  html = html.slice(0, lastScript) + mapBlock + html.slice(lastScript);
+
+  return html;
+}
+
+// ── Apply URLS_MAP to BOOKS on load ──
+function applyUrlsMap() {
+  if (typeof URLS_MAP === 'undefined') return;
+  BOOKS.forEach(b => {
+    if (URLS_MAP[b.id]) b.url = URLS_MAP[b.id];
+  });
+  // Also stamp localStorage so it stays in sync
+  localStorage.setItem('tsl_books_v2', JSON.stringify(BOOKS));
+  localStorage.setItem('tsl_data_version', DATA_VERSION);
+}
+
+// ── Notice banner ──
+function showNotice(msg, type) {
+  let n = document.getElementById('gh-notice');
+  if (!n) {
+    n = document.createElement('div');
+    n.id = 'gh-notice';
+    n.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:8px;font-size:14px;font-family:Inter,sans-serif;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);transition:opacity .3s;max-width:90vw;text-align:center;';
+    document.body.appendChild(n);
+  }
+  n.textContent = msg;
+  n.style.background = type === 'success' ? '#2E7D32' : '#c0392b';
+  n.style.color = '#fff';
+  n.style.opacity = '1';
+  clearTimeout(n._timer);
+  n._timer = setTimeout(() => { n.style.opacity = '0'; }, 5000);
+}
+
 function toggleAdmin() {}
+function exportData() {
+  const blob = new Blob([JSON.stringify(BOOKS,null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'tamil-stories-books.json'; a.click();
+}
 
 // ══════════════════════════════════════════════════════════════════
 // TAB SWITCHING — Ready / Coming Soon
@@ -1253,8 +1409,34 @@ function togglePoem(el) {
 // ══════════════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════════════
+applyUrlsMap();
 buildFilterButtons();
 renderAll();
+
+/* URLS_MAP_START */
+const URLS_MAP={
+  "aathichudi_1": "https://heyzine.com/flip-book/53b85e56cb.html",
+  "aathichudi_2": "https://heyzine.com/flip-book/165f4dc9a0.html",
+  "aathichudi_3": "https://heyzine.com/flip-book/4e7d82bf67.html",
+  "aathichudi_4": "https://heyzine.com/flip-book/3a86fa8542.html",
+  "aathichudi_5": "https://heyzine.com/flip-book/1eb743e037.html",
+  "aathichudi_6": "https://heyzine.com/flip-book/fd951e7fa9.html",
+  "aathichudi_7": "https://heyzine.com/flip-book/e800bf7b64.html",
+  "aathichudi_8": "https://heyzine.com/flip-book/3f6e857380.html",
+  "aathichudi_9": "https://heyzine.com/flip-book/d428cbfbcf.html",
+  "aathichudi_10": "https://heyzine.com/flip-book/c941d89dad.html",
+  "aathichudi_11": "https://heyzine.com/flip-book/ca77337385.html",
+  "aathichudi_12": "https://heyzine.com/flip-book/8e50cd78e8.html",
+  "aathichudi_13": "https://heyzine.com/flip-book/a2d1f22ca0.html",
+  "aathichudi_14": "https://heyzine.com/flip-book/e53d87a2eb.html",
+  "aathichudi_15": "https://heyzine.com/flip-book/0afe6e40fb.html",
+  "aathichudi_20": "https://heyzine.com/flip-book/79ae5dc27a.html",
+  "aathichudi_89": "https://heyzine.com/flip-book/7f7df88d32.html",
+  "aathichudi_90": "https://heyzine.com/flip-book/7b192c93af.html",
+  "aathichudi_93": "https://heyzine.com/flip-book/904f5afd3e.html"
+};
+applyUrlsMap();
+/* URLS_MAP_END */
 </script>
 </body>
 </html>
