@@ -1,4 +1,4 @@
-const AC_VERSES = [
+const  AC_VERSES = [
   // உயிர் வருக்கம் 1–13
   [1,"ac_uir","அறஞ்செய விரும்பு","Desire to do good"],
   [2,"ac_uir","ஆறுவது சினம்","Cool down your anger"],
